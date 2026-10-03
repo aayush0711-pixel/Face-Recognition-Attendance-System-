@@ -1,8 +1,8 @@
-
 import cv2
 import face_recognition
 import os
 import csv
+import sqlite3
 from datetime import datetime
 
 # Folder containing student photos
@@ -34,48 +34,92 @@ for filename in os.listdir(path):
 print("Students loaded:", classNames)
 
 
-# Mark attendance only once per student per day
+# Mark attendance in SQLite database
+def mark_database_attendance(name):
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now().strftime("%H:%M:%S")
+
+    conn = sqlite3.connect("attendance.db")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO attendance (name, date, time)
+            VALUES (?, ?, ?)
+            """,
+            (name, today, current_time)
+        )
+
+        conn.commit()
+        print("Database attendance marked:", name)
+
+    except sqlite3.IntegrityError:
+        # Attendance already marked today
+        pass
+
+    conn.close()
+
+
+# Mark attendance in CSV and database
 def mark_attendance(name):
 
     today = datetime.now().strftime("%Y-%m-%d")
 
     file_exists = os.path.exists("Attendance.csv")
 
+    already_marked = False
+
     if file_exists:
+
         with open("Attendance.csv", "r", newline="") as file:
+
             reader = csv.reader(file)
 
             for row in reader:
+
                 if len(row) >= 2:
+
                     if row[0] == name and row[1] == today:
-                        return
+                        already_marked = True
+                        break
 
-    now = datetime.now()
-    time = now.strftime("%H:%M:%S")
+    if not already_marked:
 
-    with open("Attendance.csv", "a", newline="") as file:
-        writer = csv.writer(file)
+        now = datetime.now()
+        time = now.strftime("%H:%M:%S")
 
-        if not file_exists:
-            writer.writerow(["Name", "Date", "Time"])
+        with open("Attendance.csv", "a", newline="") as file:
 
-        writer.writerow([name, today, time])
+            writer = csv.writer(file)
 
-    print("Attendance marked:", name)
+            if not file_exists:
+                writer.writerow(["Name", "Date", "Time"])
+
+            writer.writerow([name, today, time])
+
+        print("CSV attendance marked:", name)
+
+    # Save attendance to database
+    mark_database_attendance(name)
 
 
 # Start webcam
 video = cv2.VideoCapture(0)
 
 if not video.isOpened():
+
     print("Cannot open webcam!")
     exit()
+
 
 while True:
 
     ret, frame = video.read()
 
     if not ret:
+
         print("Cannot read webcam!")
         break
 
@@ -103,7 +147,9 @@ while True:
         name = "Unknown"
 
         if True in matches:
+
             match_index = matches.index(True)
+
             name = classNames[match_index]
 
             mark_attendance(name)
@@ -136,6 +182,7 @@ while True:
     # Press Q to close webcam
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
+
 
 video.release()
 cv2.destroyAllWindows()
