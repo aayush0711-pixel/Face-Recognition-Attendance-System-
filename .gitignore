@@ -1,3 +1,10 @@
 venv/
 __pycache__/
 *.pyc
+attendance.db
+Attendance.csv
+ImagesAttendance/
+dataset/
+encodings.pkl
+.env
+*.pem

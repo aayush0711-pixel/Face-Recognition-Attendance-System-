@@ -8,21 +8,29 @@ folder = "ImagesAttendance"
 os.makedirs(folder, exist_ok=True)
 
 
-# Save student information in database
-def save_student(name, path):
+def save_student(name, username, password, path):
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
 
-    cursor.execute(
-        "INSERT OR REPLACE INTO students (name, image_path) VALUES (?, ?)",
-        (name, path)
-    )
+    try:
+        cursor.execute(
+            """
+            INSERT INTO students (name, image_path, username, password)
+            VALUES (?, ?, ?, ?)
+            """,
+            (name, path, username, password)
+        )
 
-    conn.commit()
+        conn.commit()
+        print("Student saved in database!")
+
+    except sqlite3.IntegrityError:
+        print("Username already exists!")
+
     conn.close()
 
 
-# Get student name
+# Student name
 name = input("Enter student name: ").strip()
 
 if not name:
@@ -32,7 +40,23 @@ if not name:
 name = re.sub(r'[<>:"/\\|?*]', "_", name)
 
 
-print("1. Register using Webcam")
+# Username
+username = input("Create username: ").strip()
+
+if not username:
+    print("Username cannot be empty.")
+    exit()
+
+
+# Password
+password = input("Create password: ").strip()
+
+if not password:
+    print("Password cannot be empty.")
+    exit()
+
+
+print("\n1. Register using Webcam")
 print("2. Register using Photo Upload")
 
 choice = input("Choose option: ")
@@ -69,10 +93,14 @@ if choice == "1":
 
             cv2.imwrite(path, frame)
 
-            save_student(name, path)
+            save_student(
+                name,
+                username,
+                password,
+                path
+            )
 
             print("Photo saved:", path)
-            print("Student saved in database!")
 
             break
 
@@ -107,14 +135,21 @@ elif choice == "2":
 
         if image is not None:
 
-            path = os.path.join(folder, name + ".jpg")
+            path = os.path.join(
+                folder,
+                name + ".jpg"
+            )
 
             cv2.imwrite(path, image)
 
-            save_student(name, path)
+            save_student(
+                name,
+                username,
+                password,
+                path
+            )
 
             print("Photo saved:", path)
-            print("Student saved in database!")
 
         else:
             print("Invalid image.")
